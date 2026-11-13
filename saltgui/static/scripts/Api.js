@@ -388,7 +388,21 @@ export class API {
           return null;
         }
         throw new HTTPError(pResponse.status, pResponse.statusText);
+      }).
+      then(undefined, (pError) => {
+        throw API.makeErrorSerializable(pError);
       });
+  }
+
+  // callers show errors with JSON.stringify, which gives "{}" for an Error:
+  // its name and message are not enumerable. toString() stays the same,
+  // the login panel recognizes "TypeError: NetworkError" with it.
+  static makeErrorSerializable (pError) {
+    if (pError instanceof Error && !(pError instanceof HTTPError)) {
+      Object.defineProperty(pError, "name", {"configurable": true, "enumerable": true, "value": pError.name, "writable": true});
+      Object.defineProperty(pError, "message", {"configurable": true, "enumerable": true, "value": pError.message, "writable": true});
+    }
+    return pError;
   }
 
   _handleUnauthorized () {
