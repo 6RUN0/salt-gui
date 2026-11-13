@@ -288,4 +288,50 @@ describe("Unittests for Utils.js", () => {
     });
   });
 
+  // pins: rows of Recent Jobs that get their status/details later
+  // must be filtered again, without moving the focus to the search field
+  describe("refreshTableFilter", () => {
+    const makeTable = (pSearchBlock) => ({
+      "parentElement": {"querySelector": () => pSearchBlock}
+    });
+    const makeSearchBlock = (pIsHidden, pValue) => ({
+      "classList": {"contains": (pName) => pName === "hidden" && pIsHidden},
+      "querySelector": (pSelector) => pSelector === "input" ? {"value": pValue} : "menu-items"
+    });
+
+    const withStubbedFilter = (pFn) => {
+      const original = Utils._updateTableFilter;
+      const calls = [];
+      Utils._updateTableFilter = (...pArgs) => calls.push(pArgs);
+      try {
+        pFn(calls);
+      } finally {
+        Utils._updateTableFilter = original;
+      }
+    };
+
+    it("test without search box does nothing", () => {
+      withStubbedFilter((calls) => {
+        Utils.refreshTableFilter(makeTable(null));
+        assert.equal(calls.length, 0);
+      });
+    });
+
+    it("test with hidden search box does nothing", () => {
+      withStubbedFilter((calls) => {
+        Utils.refreshTableFilter(makeTable(makeSearchBlock(true, "failed")));
+        assert.equal(calls.length, 0);
+      });
+    });
+
+    it("test with visible search box re-applies current text", () => {
+      withStubbedFilter((calls) => {
+        const table = makeTable(makeSearchBlock(false, "failed"));
+        Utils.refreshTableFilter(table);
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0], [table, "failed", "menu-items"]);
+      });
+    });
+  });
+
 });

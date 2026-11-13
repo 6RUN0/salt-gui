@@ -50,12 +50,13 @@ export class JobsPanel extends Panel {
 
     if (typeof pData !== "object") {
       this._markAllJobsWithError(pData);
-      return;
+    } else {
+      const jobs = pData.return[0];
+      this._updateRunningJobs(jobs);
+      this._updateFinishedJobs();
     }
 
-    const jobs = pData.return[0];
-    this._updateRunningJobs(jobs);
-    this._updateFinishedJobs();
+    Utils.refreshTableFilter(this.table);
   }
 
   _markAllJobsWithError (pData) {

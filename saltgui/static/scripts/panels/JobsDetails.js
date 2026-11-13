@@ -235,6 +235,7 @@ export class JobsDetailsPanel extends JobsPanel {
       // don't bother getting more data
       // may show more then 3 errors when some are still in-flight
       this._handleJobsRunnerJobsListJob(jobId, "skipped");
+      Utils.refreshTableFilter(this.table);
       return;
     }
 
@@ -246,10 +247,12 @@ export class JobsDetailsPanel extends JobsPanel {
 
     runnerJobsListJobPromise.then((ok_RunnerJobsListJob) => {
       this._handleJobsRunnerJobsListJob(pJobId, ok_RunnerJobsListJob);
+      Utils.refreshTableFilter(this.table);
       return true;
     }, (_error_RunnerJobsListJob) => {
       this.nrErrors += 1;
       this._handleJobsRunnerJobsListJob(pJobId, JSON.stringify(_error_RunnerJobsListJob));
+      Utils.refreshTableFilter(this.table);
       return false;
     });
   }

@@ -363,6 +363,18 @@ export class Utils {
     Utils.addToolTip(helpButton, pHelpText, pStyle);
   }
 
+  // re-apply the current filter after rows were updated asynchronously
+  // hideShowTableSearchBar("refresh") would also move the focus to the search field
+  static refreshTableFilter (pTable) {
+    const searchBlock = pTable.parentElement.querySelector(".search-box");
+    if (!searchBlock || searchBlock.classList.contains("hidden")) {
+      return;
+    }
+    const input = searchBlock.querySelector("input");
+    const menuItems = searchBlock.querySelector(".menu-dropdown-content");
+    Utils._updateTableFilter(pTable, input.value, menuItems);
+  }
+
   static hideShowTableSearchBar (pSearchBlock, pTable, pAction = "toggle") {
     const startElement = pTable.parentElement;
 
