@@ -8,7 +8,7 @@ docker-compose --file docker-compose.yml up -d
 
 # wait until user decides
 echo "Please use http://localhost:3333 for SaltGUI (Username='salt', Password='salt')"
-echo -n "Press ENTER to stop $0"; read dummy
+printf "%s" "Press ENTER to stop $0"; read -r _
 
 # remove the containers
 docker-compose --file docker-compose.yml rm --force --stop

@@ -8,7 +8,7 @@ docker-compose --file docker-compose-tls.yml up -d
 
 # wait until user decides
 echo "Please use https://localhost:3334 for SaltGUI (Username='salt', Password='salt')"
-echo -n "Press ENTER to stop $0"; read dummy
+printf "%s" "Press ENTER to stop $0"; read -r _
 
 # remove the containers
 docker-compose --file docker-compose-tls.yml rm --force --stop
