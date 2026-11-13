@@ -236,6 +236,12 @@ export class OutputDocumentation {
         replace(/^(?:.|[\n\r])*[.][.] _/m, ""). // NOSONAR S8786
         replace(/(?:[\n\r])(?:.|[\n\r])*$/m, "");
       const words = reference.split(": ");
+      // a label (".. _name:") has no target and is not a link,
+      // it is removed and the remaining links are still processed
+      if (words.length === 1 && /:\s*$/.test(reference)) {
+        pOut = pOut.replace(".. _" + reference, "");
+        continue;
+      }
       if (words.length !== 2) {
         /* istanbul ignore next */
         Utils.warn("words", words);

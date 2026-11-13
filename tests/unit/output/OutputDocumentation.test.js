@@ -126,6 +126,16 @@ describe("Unittests for output/OutputDocumentation.js", () => {
   });
 
   describe("addDocumentationOutput", () => {
+    it("test internal label does not stop the external links", () => {
+      // a reStructuredText label has no target, e.g. ".. _x509-setup:" in the x509_v2 module
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see doc_\n .. _doc: https://example.com/page\n\n.. _some-label:\n\ntext"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      assert.include(container.innerHTML, "see <a href='https://example.com/page' target='_blank' rel='noopener'>doc</a>");
+      assert.notInclude(container.innerHTML, ".. _");
+      assert.include(container.innerHTML, "text");
+    });
+
     it("test external link conversion", () => {
       const container = {"innerHTML": ""};
       const output = {"host1": {"pkg.install": "`systemd-run(1)`_\n .. _`systemd-run(1)`: https://www.freedesktop.org/software/systemd/man/systemd-run.html"}};
