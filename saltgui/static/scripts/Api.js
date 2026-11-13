@@ -1,10 +1,13 @@
-/* global config EventSource window */
+/* global config EventSource URLSearchParams window */
 
 import {Character} from "./Character.js";
 import {CommandBox} from "./CommandBox.js";
 import {Router} from "./Router.js";
 import {TargetType} from "./TargetType.js";
 import {Utils} from "./Utils.js";
+
+// how long a 401 waits for /logout before showing the login page anyway
+const LOGOUT_WAIT_MS = 10000;
 
 export class HTTPError extends Error {
   constructor (pStatus, pMessage) {
@@ -60,14 +63,22 @@ export class API {
 
     // only delete the session here as the router should take care of
     // redirecting to the login screen
+    // a late answer must not delete a session that started after this
+    // logout, e.g. when the login page was shown without waiting for it
+    const token = Utils.getStorageItem("session", "token", "");
+    const cleanStorageOfThisSession = () => {
+      if (Utils.getStorageItem("session", "token", "") === token) {
+        API._cleanStorage();
+      }
+    };
     return this.apiRequest("POST", "/logout", {}).
       then(() => {
         // we could logout, assume the session is terminated
-        API._cleanStorage();
+        cleanStorageOfThisSession();
         return true;
       }, () => {
         // we could not logout, assume the session is broken
-        API._cleanStorage();
+        cleanStorageOfThisSession();
         return false;
       });
   }
@@ -384,7 +395,7 @@ export class API {
           return null;
         }
         if (pResponse.status === 401 && pPage !== "/login") {
-          this._handleUnauthorized();
+          this._handleUnauthorized(pPage, token);
           return null;
         }
         throw new HTTPError(pResponse.status, pResponse.statusText);
@@ -405,34 +416,108 @@ export class API {
     return pError;
   }
 
-  _handleUnauthorized () {
-    const loginResponseStr = Utils.getStorageItem("session", "login_response");
-    if (!loginResponseStr) {
-      this.logout().then(() => {
-        this.router.goTo("login", {"reason": "no-session"});
-        return true;
-      }, () => {
-        this.router.goTo("login", {"reason": "no-session"});
-        return false;
-      });
+  // salt-api also answers 401 when the eauth ACL denies a function,
+  // so a 401 on a session that is not expired only ends the session when
+  // it came from /stats: that one checks the session, not the permissions.
+  // e.g. a restart of salt-api forgets the sessions; without this every
+  // next request gets a 401 again
+  // returns null when the session may still be valid
+  static getUnauthorizedReason (pLoginResponseStr, pNow, pPage) {
+    if (!pLoginResponseStr) {
+      return "no-session";
+    }
+    const loginResponse = JSON.parse(pLoginResponseStr);
+    // just in case...
+    if (loginResponse && pNow > loginResponse.expire) {
+      return "session-expired";
+    }
+    if (pPage === "/stats") {
+      return "session-rejected";
+    }
+    return null;
+  }
+
+  // the page to return to after the new login
+  static getReturnPage (pHash) {
+    const page = pHash.replace(/^#/, "");
+    if (page === "" || page === "login" || page === "logout") {
+      return null;
+    }
+    return page;
+  }
+
+  // the query for the login page: the reason, and the page with its own
+  // parameters (e.g. "id" of the job page) to return to after the login
+  static buildLoginQuery (pReason, pHash, pSearch) {
+    /* eslint-disable compat/compat */
+    /* URLSearchParams.entries() is not supported in IE 11 */
+    /* URLSearchParams is not supported in op_mini all, IE 11, Baidu 7.12 */
+    const query = Object.fromEntries(new URLSearchParams(pSearch));
+    /* eslint-enable compat/compat */
+    delete query["page"];
+    query["reason"] = pReason;
+    const page = API.getReturnPage(pHash);
+    if (page) {
+      query["page"] = page;
+    }
+    return query;
+  }
+
+  _handleUnauthorized (pPage, pRequestToken) {
+    // parallel requests all get a 401, handle only the first one
+    if (API.isHandlingUnauthorized) {
+      return;
+    }
+    // a late answer to a request of an older session, e.g. one that was
+    // still underway during the logout: handling it again would replace
+    // the reason and the page to return to
+    if (pRequestToken !== Utils.getStorageItem("session", "token", "")) {
       return;
     }
 
-    const loginResponse = JSON.parse(loginResponseStr);
-    // just in case...
-    if (loginResponse) {
-      const now = Date.now() / 1000;
-      const expireValue = loginResponse.expire;
-      if (now > expireValue) {
-        this.logout().then(() => {
-          this.router.goTo("login", {"reason": "session-expired"});
-          return true;
-        }, () => {
-          this.router.goTo("login", {"reason": "session-expired"});
-          return false;
-        });
+    const loginResponseStr = Utils.getStorageItem("session", "login_response");
+    const reason = API.getUnauthorizedReason(loginResponseStr, Date.now() / 1000, pPage);
+    if (reason === null) {
+      // maybe only this function is not permitted, let /stats decide
+      // its own 401 comes back here with pPage "/stats"
+      if (!API.isProbingSession) {
+        API.isProbingSession = true;
+        const resetProbe = () => {
+          API.isProbingSession = false;
+        };
+        this.getStats().then(resetProbe, resetProbe);
       }
+      return;
     }
+    API.isHandlingUnauthorized = true;
+
+    const query = API.buildLoginQuery(reason, window.location.hash, window.location.search);
+
+    let isLoginShown = false;
+    const goToLogin = () => {
+      if (isLoginShown) {
+        return;
+      }
+      isLoginShown = true;
+      API.isHandlingUnauthorized = false;
+      this.router.goTo("login", query);
+    };
+    this.logout().then(() => {
+      goToLogin();
+      return true;
+    }, () => {
+      goToLogin();
+      return false;
+    });
+    // fetch has no timeout: a hanging /logout must not keep the GUI
+    // on a dead session, with every next 401 ignored
+    window.setTimeout(() => {
+      if (!isLoginShown) {
+        // the session is dead anyway, do not wait for the server to say so
+        API._cleanStorage();
+        goToLogin();
+      }
+    }, LOGOUT_WAIT_MS);
   }
 
   static getEvents () {
