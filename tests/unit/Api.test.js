@@ -103,4 +103,22 @@ describe("Unittests for Api.js", () => {
     });
   });
 
+  // pins: a failed event stream was closed for good, the screens got no more updates
+  describe("getNextEventsRetryMillis", () => {
+    it("test first retry after 2 seconds", () => {
+      assert.equal(API.getNextEventsRetryMillis(undefined), 2000);
+      assert.equal(API.getNextEventsRetryMillis(0), 2000);
+    });
+
+    it("test retry delay doubles", () => {
+      assert.equal(API.getNextEventsRetryMillis(2000), 4000);
+      assert.equal(API.getNextEventsRetryMillis(16000), 32000);
+    });
+
+    it("test retry delay stops at 60 seconds", () => {
+      assert.equal(API.getNextEventsRetryMillis(32000), 60000);
+      assert.equal(API.getNextEventsRetryMillis(60000), 60000);
+    });
+  });
+
 });
