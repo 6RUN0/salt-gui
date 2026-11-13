@@ -110,4 +110,39 @@ describe("Unittests for Documentation.js", () => {
     });
   });
 
+  describe("_buildModuleAndFunctionLinks", () => {
+    beforeEach(() => {
+      // normally set by the constructor
+      Documentation.DOCUMENTATION_URL = "https://docs.saltproject.io/en/latest/ref/";
+      Documentation.EXTERNAL_LINK = "";
+    });
+
+    it("test regular module and function links", () => {
+      const html = Documentation._buildModuleAndFunctionLinks(["modules", "cmd", "run"], ["cmdmod"]);
+      assert.include(html, "<a href='https://docs.saltproject.io/en/latest/ref/modules/all/salt.modules.cmdmod.html' target='_blank' rel='noopener'>Module 'cmdmod'");
+      assert.include(html, "<a href='https://docs.saltproject.io/en/latest/ref/modules/all/salt.modules.cmdmod.html#salt.modules.cmdmod.run' target='_blank' rel='noopener'>Function 'cmdmod.run'");
+    });
+
+    it("test html in module and function name is escaped", () => {
+      const html = Documentation._buildModuleAndFunctionLinks(["modules", "x", "<img src=x onerror=alert(1)>"], ["y' onmouseover='alert(2)"]);
+      assert.notInclude(html, "<img");
+      assert.notInclude(html, "' onmouseover='");
+      assert.include(html, "Function-name '&lt;img src=x onerror=alert(1)&gt;' cannot be verified");
+      assert.include(html, "salt.modules.y&#039;%20onmouseover%3D&#039;alert(2).html'");
+    });
+  });
+
+  describe("_buildBeaconsWithNoTemplateSection", () => {
+    it("test beacon name without template is shown", () => {
+      const html = Documentation._buildBeaconsWithNoTemplateSection({}, {"_cnt": 2, "mybeacon": 1});
+      assert.include(html, "<p>&nbsp;&nbsp;mybeacon (1 of 2)</p>");
+    });
+
+    it("test html in beacon name is escaped", () => {
+      const html = Documentation._buildBeaconsWithNoTemplateSection({}, {"<img src=x onerror=alert(1)>": 1, "_cnt": 1});
+      assert.notInclude(html, "<img");
+      assert.include(html, "<p>&nbsp;&nbsp;&lt;img src=x onerror=alert(1)&gt;</p>");
+    });
+  });
+
 });

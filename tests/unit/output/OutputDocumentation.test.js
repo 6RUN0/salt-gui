@@ -134,6 +134,37 @@ describe("Unittests for output/OutputDocumentation.js", () => {
         container.innerHTML.includes(
           "<a href='https://www.freedesktop.org/software/systemd/man/systemd-run.html' target='_blank' rel='noopener'><span style='color: yellow'>systemd-run(1)</span></a>"));
     });
+
+    it("test external link with query keeps single escaping", () => {
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see `doc`_\n .. _`doc`: https://example.com/page?a=1&b=2"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      assert.include(container.innerHTML, "<a href='https://example.com/page?a=1&amp;b=2' target='_blank' rel='noopener'>");
+    });
+
+    it("test quotes in external link cannot leave the attribute", () => {
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see evil_\n .. _evil: https://x/' onmouseover='alert(1)\" onclick=\"alert(2)"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      assert.include(container.innerHTML, "<a href='https://x/&#039; onmouseover=&#039;alert(1)&quot; onclick=&quot;alert(2)' target='_blank' rel='noopener'>evil</a>");
+    });
+
+    it("test backquotes in external link cannot break the markup", () => {
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see evil_\n .. _evil: https://x/`y`z"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      assert.include(container.innerHTML, "<a href='https://x/%60y%60z' target='_blank' rel='noopener'>evil</a>");
+      assert.notInclude(container.innerHTML, "<span style='color: yellow'>");
+    });
+
+    it("test non-http external link is not a link", () => {
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see evil_\n .. _evil: javascript:alert(1)"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      assert.notInclude(container.innerHTML, "<a ");
+      assert.notInclude(container.innerHTML, "javascript:");
+      assert.include(container.innerHTML, "see evil");
+    });
   });
 
 });
