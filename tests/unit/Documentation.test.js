@@ -130,6 +130,26 @@ describe("Unittests for Documentation.js", () => {
       assert.include(html, "Function-name '&lt;img src=x onerror=alert(1)&gt;' cannot be verified");
       assert.include(html, "salt.modules.y&#039;%20onmouseover%3D&#039;alert(2).html'");
     });
+
+    it("test aliased function links to the anchor of the python name", () => {
+      // "state.apply" is implemented as "apply_", the documentation has no anchor "apply"
+      const html = Documentation._buildModuleAndFunctionLinks(["modules", "state", "apply"], ["state"]);
+      assert.include(html, "<a href='https://docs.saltproject.io/en/latest/ref/modules/all/salt.modules.state.html#salt.modules.state.apply_' target='_blank' rel='noopener'>Function 'state.apply'");
+    });
+
+    it("test aliased function with another python name", () => {
+      const html = Documentation._buildModuleAndFunctionLinks(["wheel", "key", "print"], ["key"]);
+      assert.include(html, "salt.wheel.key.html#salt.wheel.key.key_str'");
+      assert.include(html, "Function 'wheel.key.print'");
+    });
+
+    it("test alias is looked up per module", () => {
+      // "ls" is aliased in "etcd_mod", but not in "grains"
+      const html = Documentation._buildModuleAndFunctionLinks(["modules", "grains", "ls"], ["grains"]);
+      assert.include(html, "salt.modules.grains.html#salt.modules.grains.ls'");
+      const etcdHtml = Documentation._buildModuleAndFunctionLinks(["modules", "etcd", "ls"], ["etcd_mod"]);
+      assert.include(etcdHtml, "salt.modules.etcd_mod.html#salt.modules.etcd_mod.ls_'");
+    });
   });
 
   describe("_buildBeaconsWithNoTemplateSection", () => {

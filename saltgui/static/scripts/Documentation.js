@@ -370,8 +370,11 @@ export class Documentation {
       if (cmd.length >= 3) {
         const functionUrl = Utils.escapeHtml(encodeURIComponent(cmd[2]));
         const functionHtml = Utils.escapeHtml(cmd[2]);
+        // an aliased function is documented under its python name
+        const functionAnchor = Documentation.FUNCTION_ANCHORS[cmd[0] + "." + concreteModule + "." + cmd[2]];
+        const anchorUrl = functionAnchor ? functionAnchor : functionUrl;
         html += "<p>Function-name '" + functionHtml + "' cannot be verified here. We'll just assume it actually exists. The link below might not work.</p>";
-        html += "<p>" + indent + "<a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + moduleUrl + ".html#salt." + cmd[0] + "." + moduleUrl + "." + functionUrl + "' target='_blank' rel='noopener'>Function '" + (cmd[0] + "." + moduleHtml + "." + functionHtml).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
+        html += "<p>" + indent + "<a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + moduleUrl + ".html#salt." + cmd[0] + "." + moduleUrl + "." + anchorUrl + "' target='_blank' rel='noopener'>Function '" + (cmd[0] + "." + moduleHtml + "." + functionHtml).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
       }
     }
 
@@ -906,6 +909,90 @@ export class Documentation {
       }
     }
     return html;
+  }
+
+  // Salt exposes some functions under another name than the python name
+  // (__func_alias__), e.g. "state.apply" is implemented as "apply_".
+  // The documentation only has an anchor for the python name.
+  // Generated from __func_alias__ in the Salt 3008.2 sources,
+  // only functions whose documentation has no anchor for the exposed name.
+  static get FUNCTION_ANCHORS () {
+    return {
+      "modules.alternatives.set": "set_",
+      "modules.ansiblegate.list": "list_",
+      "modules.archive.list": "list_",
+      "modules.archive.zip": "zip_",
+      "modules.bcache.attach": "attach_",
+      "modules.bcache.config": "config_",
+      "modules.bcache.super": "super_",
+      "modules.beacons.list": "list_",
+      "modules.bridge.list": "list_",
+      "modules.chocolatey.list": "list_",
+      "modules.chroot.apply": "apply_",
+      "modules.cloud.profile": "profile_",
+      "modules.debconfmod.set": "set_",
+      "modules.debian_service.reload": "reload_",
+      "modules.devinfo.filter": "filter_",
+      "modules.disk.format": "format_",
+      "modules.dummyproxy_service.list": "list_",
+      "modules.etcd_mod.get": "get_",
+      "modules.etcd_mod.ls": "ls_",
+      "modules.etcd_mod.rm": "rm_",
+      "modules.etcd_mod.set": "set_",
+      "modules.file.makedirs": "makedirs_",
+      "modules.git.rm": "rm_",
+      "modules.idem.exec": "exec_",
+      "modules.linux_service.reload": "reload_",
+      "modules.logrotate.set": "set_",
+      "modules.mac_assistive.enable": "enable_",
+      "modules.mac_pkgutil.list": "list_",
+      "modules.mac_service.list": "list_",
+      "modules.mac_xattr.list": "list_",
+      "modules.match.list": "list_",
+      "modules.mdadm_raid.list": "list_",
+      "modules.minion.list": "list_",
+      "modules.npm.list": "list_",
+      "modules.osquery.file": "file_",
+      "modules.osquery.hash": "hash_",
+      "modules.osquery.time": "time_",
+      "modules.parted_partition.list": "list_",
+      "modules.parted_partition.set": "set_",
+      "modules.pip.list": "list_",
+      "modules.pyenv.list": "list_",
+      "modules.quota.set": "set_",
+      "modules.rest_service.list": "list_",
+      "modules.rh_service.reload": "reload_",
+      "modules.schedule.list": "list_",
+      "modules.schedule.reload": "reload_",
+      "modules.scsi.ls": "ls_",
+      "modules.sdb.set": "set_",
+      "modules.seed.apply": "apply_",
+      "modules.smf_service.reload": "reload_",
+      "modules.solaris_fmadm.list": "list_records",
+      "modules.ssh_service.list": "list_",
+      "modules.state.apply": "apply_",
+      "modules.status.time": "time_",
+      "modules.syslog_ng.reload": "reload_",
+      "modules.systemd_service.reload": "reload_",
+      "modules.systemd_service.unmask": "unmask_",
+      "modules.test.false": "false_",
+      "modules.test.true": "true_",
+      "modules.test.try": "try_",
+      "modules.upstart_service.reload": "reload_",
+      "modules.win_appx.list": "list_",
+      "modules.win_autoruns.list": "list_",
+      "modules.win_dsc_resource.set": "set_",
+      "modules.win_file.makedirs": "makedirs_",
+      "modules.win_lgpo.set": "set_",
+      "modules.win_wusa.list": "list_",
+      "modules.zoneadm.list": "list_zones",
+      "modules.zonecfg.import": "import_",
+      "runners.cache.list": "list_",
+      "runners.reactor.list": "list_",
+      "runners.sdb.set": "set_",
+      "wheel.key.list": "list_",
+      "wheel.key.print": "key_str"
+    };
   }
 
   static _buildBeaconsWithNoTemplateSection (beaconsList, beaconsListAvailable) {
