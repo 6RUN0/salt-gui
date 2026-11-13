@@ -539,26 +539,35 @@ export class API {
       Utils.error("Cannot read the Salt-EventBus with this browser version, browser upgrade recommended");
       return;
     }
+    // a closed stream must not block the next start,
+    // e.g. after a new login without reloading the page
+    const stopStream = () => {
+      source.close();
+      API.eventsOK = false;
+    };
     source.onopen = () => {
       // Utils info "Listening for events..."
+      API.eventsRetryMillis = 0;
     };
     source.onerror = () => {
       // Don't show the error
       // It appears with every page-load
-      source.close();
+      stopStream();
+      // without a new stream, the screens no longer get any updates
+      API._scheduleEventsRestart();
     };
     source.onmessage = (pMessage) => {
       const tokenOnMessage = Utils.getStorageItem("session", "token");
       if (!tokenOnMessage) {
         // no token, stop the stream
-        source.close();
+        stopStream();
         return;
       }
 
       const loginResponseStr = Utils.getStorageItem("session", "login_response");
       if (!loginResponseStr) {
         // no login details, stop the stream
-        source.close();
+        stopStream();
         return;
       }
       const loginResponse = JSON.parse(loginResponseStr);
@@ -566,7 +575,7 @@ export class API {
       const now = Date.now() / 1000;
       if (now > expireValue) {
         // the regular session has expired, also stop the stream
-        source.close();
+        stopStream();
         return;
       }
 
@@ -624,5 +633,25 @@ export class API {
 
       Router.eventsPage.handleAnyEvent(tag, data);
     };
+  }
+
+  // 2s after the first failure, doubling up to 60s while the stream keeps failing
+  static getNextEventsRetryMillis (pPreviousMillis) {
+    if (!pPreviousMillis) {
+      return 2000;
+    }
+    return Math.min(pPreviousMillis * 2, 60000);
+  }
+
+  static _scheduleEventsRestart () {
+    if (API.eventsRetryTimeout) {
+      return;
+    }
+    API.eventsRetryMillis = API.getNextEventsRetryMillis(API.eventsRetryMillis);
+    API.eventsRetryTimeout = window.setTimeout(() => {
+      API.eventsRetryTimeout = null;
+      // does nothing after a logout
+      API.getEvents();
+    }, API.eventsRetryMillis);
   }
 }
