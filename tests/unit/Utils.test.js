@@ -5,6 +5,21 @@ import {assert} from "chai";
 
 describe("Unittests for Utils.js", () => {
 
+  // pins: a data update on the Events/Keys/Beacons page moved the focus
+  // to the search field, away from e.g. the Manual Run box
+  describe("isSearchFocusNeeded", () => {
+    it("test refresh never moves the focus", () => {
+      assert.isFalse(Utils.isSearchFocusNeeded("refresh", false));
+      assert.isFalse(Utils.isSearchFocusNeeded("refresh", true));
+    });
+
+    it("test opening the search box moves the focus", () => {
+      assert.isTrue(Utils.isSearchFocusNeeded("toggle", false));
+      assert.isFalse(Utils.isSearchFocusNeeded("toggle", true));
+      assert.isFalse(Utils.isSearchFocusNeeded("hide", true));
+    });
+  });
+
   describe("getQueryParam2", () => {
     it("test with no parameters", () => {
       let result = Utils.getQueryParam2("http://host/url", "aap");

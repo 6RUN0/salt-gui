@@ -416,9 +416,15 @@ export class Utils {
       pSearchBlock.classList.add("hidden");
       Utils._updateTableFilter(pTable, "", menuItems);
     }
-    if (!pSearchBlock.classList.contains("hidden")) {
+    if (Utils.isSearchFocusNeeded(pAction, pSearchBlock.classList.contains("hidden"))) {
       input.focus();
     }
+  }
+
+  // "refresh" runs on data updates, e.g. every event on the Events page;
+  // moving the focus then would take it away from e.g. the Manual Run box
+  static isSearchFocusNeeded (pAction, pIsHidden) {
+    return pAction !== "refresh" && !pIsHidden;
   }
 
   static _updateTableFilter (pTable, pSearchText, pMenuItems) {
