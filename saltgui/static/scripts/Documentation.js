@@ -357,15 +357,21 @@ export class Documentation {
     let html = "";
 
     for (const concreteModule of concreteModules) {
+      // cmd[0] is always a known category, the other parts are free text
+      const moduleUrl = Utils.escapeHtml(encodeURIComponent(concreteModule));
+      const moduleHtml = Utils.escapeHtml(concreteModule);
+
       // level 2
       if (cmd.length >= 2) {
-        html += "<p><a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + concreteModule + ".html' target='_blank' rel='noopener'>Module '" + (cmd[0] + "." + concreteModule).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
+        html += "<p><a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + moduleUrl + ".html' target='_blank' rel='noopener'>Module '" + (cmd[0] + "." + moduleHtml).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
       }
 
       // level 3
       if (cmd.length >= 3) {
-        html += "<p>Function-name '" + cmd[2] + "' cannot be verified here. We'll just assume it actually exists. The link below might not work.</p>";
-        html += "<p>" + indent + "<a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + concreteModule + ".html#salt." + cmd[0] + "." + concreteModule + "." + cmd[2] + "' target='_blank' rel='noopener'>Function '" + (cmd[0] + "." + concreteModule + "." + cmd[2]).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
+        const functionUrl = Utils.escapeHtml(encodeURIComponent(cmd[2]));
+        const functionHtml = Utils.escapeHtml(cmd[2]);
+        html += "<p>Function-name '" + functionHtml + "' cannot be verified here. We'll just assume it actually exists. The link below might not work.</p>";
+        html += "<p>" + indent + "<a href='" + Documentation.DOCUMENTATION_URL + cmd[0] + "/all/salt." + cmd[0] + "." + moduleUrl + ".html#salt." + cmd[0] + "." + moduleUrl + "." + functionUrl + "' target='_blank' rel='noopener'>Function '" + (cmd[0] + "." + moduleHtml + "." + functionHtml).replace(/^modules[.]/, "") + "'" + Documentation.EXTERNAL_LINK + "</a></p>";
       }
     }
 
@@ -915,7 +921,7 @@ export class Documentation {
           html += "<p>beacons available on one or more minions, but no template available:</p>";
           headerShown = true;
         }
-        html += "<p>&nbsp;&nbsp;" + beaconName;
+        html += "<p>&nbsp;&nbsp;" + Utils.escapeHtml(beaconName);
         if (beaconsListAvailable[beaconName] !== beaconsListAvailable["_cnt"]) {
           html += " (" + beaconsListAvailable[beaconName] + " of " + beaconsListAvailable["_cnt"] + ")";
         }

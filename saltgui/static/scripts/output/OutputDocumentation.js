@@ -244,11 +244,17 @@ export class OutputDocumentation {
       }
       const link = words[0];
       const target = words[1];
+      // "&", "<" and ">" are already escaped, only quotes remain
+      // a backquote would pair with a later one and the `...` rule below
+      // would put a span inside the href, so it is percent-encoded
+      const safeTarget = target.replaceAll("\"", "&quot;").replaceAll("'", "&#039;").replaceAll("`", "%60");
+      // only http(s) links, e.g. no "javascript:" urls
+      const isWebLink = /^https?:\/\//i.test(target);
       // add link to all references
       while (pOut.includes(link + "_")) {
         pOut = pOut.replace(
           link + "_",
-          "<a href='" + Utils.escapeHtml(target) + "' target='_blank' rel='noopener'>" + link + "</a>");
+          isWebLink ? "<a href='" + safeTarget + "' target='_blank' rel='noopener'>" + link + "</a>" : link);
       }
       // remove the item from the link table
       pOut = pOut.replace(".. _" + reference, "");
