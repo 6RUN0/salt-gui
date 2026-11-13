@@ -276,6 +276,10 @@ export class LoginPanel extends Panel {
     case "session-expired":
       this._showNoticeText("#F44336", "Session expired", "notice-session-expired");
       break;
+    case "session-rejected":
+      // e.g. salt-api was restarted and forgot the session
+      this._showNoticeText("#F44336", "Session no longer valid", "notice-session-rejected");
+      break;
     case "logout":
       // gray because this is the result of a user action
       this._showNoticeText("gray", "Logout", "notice_logout");

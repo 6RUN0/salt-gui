@@ -11,6 +11,64 @@ describe("Unittests for Api.js", () => {
     Utils.clearStorage("session");
   });
 
+  // pins: after a restart of salt-api the GUI kept sending requests that got 401,
+  // while a 401 caused by the eauth ACL must not end the session
+  describe("getUnauthorizedReason", () => {
+    const valid = JSON.stringify({"expire": 2000});
+
+    it("test without login response", () => {
+      assert.equal(API.getUnauthorizedReason(null, 1000, "/"), "no-session");
+    });
+
+    it("test with expired session", () => {
+      assert.equal(API.getUnauthorizedReason(valid, 3000, "/"), "session-expired");
+      assert.equal(API.getUnauthorizedReason(valid, 3000, "/stats"), "session-expired");
+    });
+
+    it("test 401 from /stats on a valid session ends it", () => {
+      assert.equal(API.getUnauthorizedReason(valid, 1000, "/stats"), "session-rejected");
+    });
+
+    it("test 401 from a regular request on a valid session needs a probe", () => {
+      assert.isNull(API.getUnauthorizedReason(valid, 1000, "/"));
+      assert.isNull(API.getUnauthorizedReason(valid, 1000, "/static/minions.txt"));
+    });
+  });
+
+  // pins: after a new login the page came back without its parameters,
+  // e.g. the job page without "id"
+  describe("buildLoginQuery", () => {
+    it("test page and its parameters are kept", () => {
+      assert.deepEqual(API.buildLoginQuery("session-rejected", "#job", "?id=20261113"),
+        {"id": "20261113", "page": "job", "reason": "session-rejected"});
+      assert.deepEqual(API.buildLoginQuery("session-expired", "#grains-minion", "?minionid=m1&popup=true"),
+        {"minionid": "m1", "page": "grains-minion", "popup": "true", "reason": "session-expired"});
+    });
+
+    it("test old reason and page are replaced", () => {
+      assert.deepEqual(API.buildLoginQuery("session-rejected", "#minions", "?reason=no-session&page=keys"),
+        {"page": "minions", "reason": "session-rejected"});
+    });
+
+    it("test login page as current page keeps no page", () => {
+      assert.deepEqual(API.buildLoginQuery("no-session", "#login", ""), {"reason": "no-session"});
+    });
+  });
+
+  describe("getReturnPage", () => {
+    it("test regular page is kept", () => {
+      assert.equal(API.getReturnPage("#minions"), "minions");
+      assert.equal(API.getReturnPage("#job"), "job");
+    });
+
+    it("test login, logout and empty hash are not kept", () => {
+      assert.isNull(API.getReturnPage(""));
+      assert.isNull(API.getReturnPage("#"));
+      assert.isNull(API.getReturnPage("#login"));
+      assert.isNull(API.getReturnPage("#logout"));
+    });
+  });
+
   // pins: the "(error)" tooltip showed "{}" for network errors
   describe("makeErrorSerializable", () => {
     it("test network error shows name and message", () => {
