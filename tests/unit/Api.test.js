@@ -11,6 +11,30 @@ describe("Unittests for Api.js", () => {
     Utils.clearStorage("session");
   });
 
+  // pins: the "(error)" tooltip showed "{}" for network errors
+  describe("makeErrorSerializable", () => {
+    it("test network error shows name and message", () => {
+      const error = API.makeErrorSerializable(new TypeError("NetworkError when attempting to fetch resource."));
+      assert.deepEqual(JSON.parse(JSON.stringify(error)), {"message": "NetworkError when attempting to fetch resource.", "name": "TypeError"});
+    });
+
+    it("test toString is unchanged for the login panel", () => {
+      const error = API.makeErrorSerializable(new TypeError("NetworkError when attempting to fetch resource."));
+      assert.isTrue(error.toString().startsWith("TypeError: NetworkError"));
+      assert.instanceOf(error, TypeError);
+    });
+
+    it("test HTTPError is unchanged", () => {
+      const error = API.makeErrorSerializable(new HTTPError(500, "Internal Server Error"));
+      assert.deepEqual(JSON.parse(JSON.stringify(error)), {"message": "Internal Server Error", "status": 500});
+    });
+
+    it("test non-error values pass through", () => {
+      assert.equal(API.makeErrorSerializable("text"), "text");
+      assert.isNull(API.makeErrorSerializable(null));
+    });
+  });
+
   describe("HTTPError", () => {
     it("test constructor with status and message", () => {
       const error = new HTTPError(404, "Not Found");
