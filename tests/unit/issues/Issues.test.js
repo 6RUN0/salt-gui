@@ -168,4 +168,18 @@ describe("Unittests for Issues.js", () => {
     });
   });
 
+  describe("_openUrl", () => {
+    it("test url is opened without access to the opener", () => {
+      // no DOM in the unit tests, window is replaced by a stub
+      const calls = [];
+      globalThis.window = {"open": (...pArgs) => calls.push(pArgs)};
+      try {
+        Issues._openUrl("https://www.cve.org/");
+      } finally {
+        delete globalThis.window;
+      }
+      assert.deepEqual(calls, [["https://www.cve.org/", "_blank", "noopener"]]);
+    });
+  });
+
 });

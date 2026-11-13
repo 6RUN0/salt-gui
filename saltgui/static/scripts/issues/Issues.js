@@ -119,6 +119,11 @@ export class Issues {
     }
   }
 
+  // external pages must not get access to SaltGUI via window.opener
+  static _openUrl (pUrl) {
+    window.open(pUrl, "_blank", "noopener");
+  }
+
   static _navigateAndOptionalScroll (pRouter, pNav, pClickEvent) {
     pRouter.goTo(pNav.page, pNav.args, undefined, pClickEvent);
     if (pNav.locationId) {
@@ -180,7 +185,7 @@ export class Issues {
     for (const url of pIssueData.urls) {
       const title = "Go to " + url.title + " " + Character.HEAVY_NORTH_EAST_ARROW;
       menu.addMenuItem(title, (pClickEvent) => {
-        window.open(url.url, "_blank");
+        Issues._openUrl(url.url);
         pClickEvent.stopPropagation();
       });
       hasClick = true;
@@ -198,7 +203,7 @@ export class Issues {
           } else if (pIssueData.navigations.length > 0) {
             Issues._navigateAndOptionalScroll(theTr.panel.router, pIssueData.navigations[0], pClickEvent);
           } else if (pIssueData.urls.length > 0) {
-            window.open(pIssueData.urls[0].url, "_blank");
+            Issues._openUrl(pIssueData.urls[0].url);
           }
           clickHandled = true;
         }
