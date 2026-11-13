@@ -165,6 +165,16 @@ describe("Unittests for output/OutputDocumentation.js", () => {
       assert.notInclude(container.innerHTML, "javascript:");
       assert.include(container.innerHTML, "see evil");
     });
+
+    it("test external link whose url contains the link name terminates", () => {
+      // the replacement contains "doc_" again, a repeated replace never ended
+      const container = {"innerHTML": ""};
+      const output = {"host1": {"pkg.install": "see doc_ and doc_\n .. _doc: https://example.com/doc_page\n"}};
+      OutputDocumentation.addDocumentationOutput(container, output);
+      const anchor = "<a href='https://example.com/doc_page' target='_blank' rel='noopener'>doc</a>";
+      assert.include(container.innerHTML, "see " + anchor + " and " + anchor);
+      assert.notInclude(container.innerHTML, ".. _");
+    });
   });
 
 });

@@ -250,14 +250,13 @@ export class OutputDocumentation {
       const safeTarget = target.replaceAll("\"", "&quot;").replaceAll("'", "&#039;").replaceAll("`", "%60");
       // only http(s) links, e.g. no "javascript:" urls
       const isWebLink = /^https?:\/\//i.test(target);
-      // add link to all references
-      while (pOut.includes(link + "_")) {
-        pOut = pOut.replace(
-          link + "_",
-          isWebLink ? "<a href='" + safeTarget + "' target='_blank' rel='noopener'>" + link + "</a>" : link);
-      }
       // remove the item from the link table
+      // first, because the target may contain the link name
       pOut = pOut.replace(".. _" + reference, "");
+      // add link to all references
+      // in one pass, because the replacement may contain the link name
+      pOut = pOut.split(link + "_").join(
+        isWebLink ? "<a href='" + safeTarget + "' target='_blank' rel='noopener'>" + link + "</a>" : link);
     }
 
     // replace ``......``
