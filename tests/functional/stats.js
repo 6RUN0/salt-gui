@@ -131,7 +131,7 @@ describe("Stats Panel", function () {
   });
 
   it("should not display stats panel in popup mode", async () => {
-    await page.goto(url + "#options?popup=true");
+    await page.goto(url + "?popup=true#options");
     await page.waitForFunction(() => document.location.href.includes("#options"), { timeout: TIMEOUT });
 
     const hasStatsPanel = await page.evaluate(() => {
