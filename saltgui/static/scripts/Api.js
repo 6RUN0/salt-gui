@@ -395,8 +395,12 @@ export class API {
           return null;
         }
         if (pResponse.status === 401 && pPage !== "/login") {
-          this._handleUnauthorized(pPage, token);
-          return null;
+          if (this._handleUnauthorized(pPage, token)) {
+            // the login page follows, nothing to show here
+            return null;
+          }
+          // the session is valid, so the eauth ACL refused this request
+          throw new HTTPError(401, API.getNotPermittedText(pPage, pParams));
         }
         throw new HTTPError(pResponse.status, pResponse.statusText);
       }).
@@ -463,16 +467,31 @@ export class API {
     return query;
   }
 
+  // the text for a 401 on a valid session: e.g. "grains.items" on "*"
+  // is not in the eauth ACL of the user
+  static getNotPermittedText (pPage, pParams) {
+    let what = pPage;
+    if (pParams && pParams.fun) {
+      what = "'" + pParams.fun + "'";
+      if (pParams.tgt !== undefined) {
+        what += " on '" + pParams.tgt + "'";
+      }
+    }
+    return "The eauth ACL does not permit " + what;
+  }
+
+  // returns false when the session is still valid, the request itself
+  // was not permitted; true when the session ends or ended already
   _handleUnauthorized (pPage, pRequestToken) {
     // parallel requests all get a 401, handle only the first one
     if (API.isHandlingUnauthorized) {
-      return;
+      return true;
     }
     // a late answer to a request of an older session, e.g. one that was
     // still underway during the logout: handling it again would replace
     // the reason and the page to return to
     if (pRequestToken !== Utils.getStorageItem("session", "token", "")) {
-      return;
+      return true;
     }
 
     const loginResponseStr = Utils.getStorageItem("session", "login_response");
@@ -487,7 +506,7 @@ export class API {
         };
         this.getStats().then(resetProbe, resetProbe);
       }
-      return;
+      return false;
     }
     API.isHandlingUnauthorized = true;
 
@@ -518,6 +537,7 @@ export class API {
         goToLogin();
       }
     }, LOGOUT_WAIT_MS);
+    return true;
   }
 
   static getEvents () {

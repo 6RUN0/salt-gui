@@ -455,6 +455,10 @@ export class Panel {
   showErrorRowInstead (pData) {
     if (pData === null) {
       // not an error, but also nothing to show
+      // do not keep the "(loading)" message forever
+      if (this.msgDiv) {
+        this.msgDiv.style.display = "none";
+      }
       return true;
     }
 
