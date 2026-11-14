@@ -1,8 +1,15 @@
-/* global describe it beforeEach */
+/* global afterEach beforeEach describe it */
+/* eslint-disable compat/compat */
 
 import {HTTPError, API} from "../../saltgui/static/scripts/Api.js";
 import {Utils} from "../../saltgui/static/scripts/Utils.js";
 import {assert} from "chai";
+
+// no DOM in the unit tests, window and config are replaced by stubs;
+// not enumerable, so that mocha --check-leaks does not report them
+const defineGlobal = (pName, pValue) => {
+  Object.defineProperty(globalThis, pName, {"configurable": true, "enumerable": false, "value": pValue, "writable": true});
+};
 
 describe("Unittests for Api.js", () => {
 
@@ -90,6 +97,66 @@ describe("Unittests for Api.js", () => {
     it("test non-error values pass through", () => {
       assert.equal(API.makeErrorSerializable("text"), "text");
       assert.isNull(API.makeErrorSerializable(null));
+    });
+  });
+
+  // pins: a 401 from the eauth ACL on a valid session resolved to null,
+  // the panels kept showing "(loading)" and Manual Run "null response"
+  describe("apiRequest with 401 on a valid session", () => {
+    let api;
+    let goTos;
+
+    const answer = (pStatus, pStatusText) => Promise.resolve({
+      "json": () => Promise.resolve({}),
+      "ok": pStatus === 200,
+      "status": pStatus,
+      "statusText": pStatusText,
+      "text": () => Promise.resolve("")
+    });
+
+    beforeEach(() => {
+      goTos = [];
+      defineGlobal("config", {"API_URL": "http://api"});
+      defineGlobal("window", {
+        // /stats says that the session is valid
+        "fetch": (pUrl) => pUrl.endsWith("/stats") ? answer(200, "OK") : answer(401, "Unauthorized"),
+        "localStorage": Utils._getDummyStorage("local"),
+        "location": {"hash": "#grains", "search": ""},
+        "sessionStorage": Utils._getDummyStorage("session"),
+        "setTimeout": () => 0
+      });
+      Utils.setStorageItem("session", "token", "token1");
+      Utils.setStorageItem("session", "login_response", JSON.stringify({"expire": Date.now() / 1000 + 3600}));
+      API.isHandlingUnauthorized = false;
+      API.isProbingSession = false;
+      api = new API();
+      api.router = {"goTo": (pPage) => goTos.push(pPage)};
+    });
+
+    afterEach(() => {
+      Utils.clearStorage("session");
+      delete globalThis.config;
+      delete globalThis.window;
+    });
+
+    it("test request is rejected with the function and target", async () => {
+      const params = {"client": "local", "fun": "grains.items", "tgt": "*"};
+      const result = await api.apiRequest("POST", "/", params).then(() => "resolved", (pError) => pError);
+      assert.instanceOf(result, HTTPError);
+      assert.equal(result.status, 401);
+      assert.equal(result.message, "The eauth ACL does not permit 'grains.items' on '*'");
+      assert.deepEqual(goTos, []);
+    });
+
+    it("test runner request has no target in the text", () => {
+      assert.equal(API.getNotPermittedText("/", {"client": "runner", "fun": "jobs.active"}), "The eauth ACL does not permit 'jobs.active'");
+      assert.equal(API.getNotPermittedText("/static/minions.txt", undefined), "The eauth ACL does not permit /static/minions.txt");
+    });
+
+    it("test request of an older session still resolves to null", async () => {
+      const request = api.apiRequest("POST", "/", {"client": "local", "fun": "test.ping", "tgt": "*"});
+      Utils.setStorageItem("session", "token", "token2");
+      assert.isNull(await request);
     });
   });
 

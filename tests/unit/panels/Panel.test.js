@@ -221,4 +221,21 @@ describe("Unittests for panels/Panel.js", () => {
     });
   });
 
+  // pins: with a null answer the "(loading)" message stayed forever
+  describe("showErrorRowInstead", () => {
+    it("test null hides the loading message", () => {
+      const panel = Object.create(Panel.prototype);
+      panel.msgDiv = {"style": {"display": ""}};
+      assert.isTrue(panel.showErrorRowInstead(null));
+      assert.equal(panel.msgDiv.style.display, "none");
+    });
+
+    it("test object is not an error", () => {
+      const panel = Object.create(Panel.prototype);
+      panel.msgDiv = {"style": {"display": ""}};
+      assert.isFalse(panel.showErrorRowInstead({}));
+      assert.equal(panel.msgDiv.style.display, "");
+    });
+  });
+
 });
