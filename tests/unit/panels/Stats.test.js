@@ -1,10 +1,17 @@
-/* global describe it */
+/* global afterEach beforeEach describe it */
+/* eslint-disable compat/compat */
 
 import {StatsPanel} from "../../../saltgui/static/scripts/panels/Stats.js";
 import {Character} from "../../../saltgui/static/scripts/Character.js";
 import {assert} from "chai";
 
 Character.init();
+
+// no DOM in the unit tests, window is replaced by a stub;
+// not enumerable, so that mocha --check-leaks does not report it
+const defineGlobal = (pName, pValue) => {
+  Object.defineProperty(globalThis, pName, {"configurable": true, "enumerable": false, "value": pValue, "writable": true});
+};
 
 describe("Unittests for panels/Stats.js", () => {
 
@@ -182,6 +189,50 @@ describe("Unittests for panels/Stats.js", () => {
       assert.isDefined(statsData["other_key"]);
     });
 
+  });
+
+  // pins: showing the Options page again (same page, no onHide) started a
+  // second /stats interval that nothing stopped; after the logout each of
+  // its 401 answers showed the login page again
+  describe("stats interval", () => {
+    let intervals;
+    let panel;
+
+    beforeEach(() => {
+      intervals = new Map();
+      let nextIntervalId = 1;
+      defineGlobal("window", {
+        "clearInterval": (pId) => intervals.delete(pId),
+        "setInterval": (pCallback) => {
+          const id = nextIntervalId;
+          nextIntervalId += 1;
+          intervals.set(id, pCallback);
+          return id;
+        }
+      });
+      panel = Object.create(StatsPanel.prototype);
+      panel.api = {"getStats": () => Promise.resolve({"return": [{}]})};
+      panel.table = {"tBodies": [{"children": [{}]}]};
+      panel._handleStats = () => {};
+      panel._stopLoop = () => {};
+    });
+
+    afterEach(() => {
+      delete globalThis.window;
+    });
+
+    it("test onShow twice runs one interval", () => {
+      panel.onShow();
+      panel.onShow();
+      assert.equal(intervals.size, 1);
+    });
+
+    it("test onHide after onShow twice stops all intervals", () => {
+      panel.onShow();
+      panel.onShow();
+      panel.onHide();
+      assert.equal(intervals.size, 0);
+    });
   });
 
 });

@@ -33,6 +33,8 @@ export class StatsPanel extends Panel {
 
     this._onShowNow();
 
+    // onShow runs again without onHide when the same page is shown again
+    window.clearInterval(this.updateStatsInterval);
     this.updateStatsInterval = window.setInterval(() => {
       this._onShowNow();
     }, 5000);
