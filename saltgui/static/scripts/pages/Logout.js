@@ -57,6 +57,12 @@ export class LogoutPage extends Page {
         }
         return;
       }
+      if (_error_HttpResponse instanceof TypeError || _error_HttpResponse.status > 500) {
+        // a network error or an error of a proxy (502, 504) says nothing
+        // about the session, the next check tries again; a rejected
+        // session gives a 401, which Api.apiRequest handles
+        return;
+      }
       this.api.logout().then(() => {
         this.router.goTo("login", {"reason": "session-cancelled"});
         return false;

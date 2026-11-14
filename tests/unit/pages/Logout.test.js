@@ -2,7 +2,7 @@
 /* eslint-disable compat/compat */
 
 // Api.js first: loading Logout.js on its own ends in an import cycle
-import "../../../saltgui/static/scripts/Api.js";
+import {API, HTTPError} from "../../../saltgui/static/scripts/Api.js";
 import {LogoutPage} from "../../../saltgui/static/scripts/pages/Logout.js";
 import {Utils} from "../../../saltgui/static/scripts/Utils.js";
 import {assert} from "chai";
@@ -67,6 +67,68 @@ describe("Unittests for pages/Logout.js", () => {
       assert.deepEqual(goTos, ["login session-expired"]);
       page._updateSessionTimeoutWarning();
       assert.lengthOf(logouts, 2);
+    });
+  });
+
+  // pins: a network error or a 502 on the check of /stats every minute
+  // ended a valid session with "Session cancelled"
+  describe("_logoutTimer", () => {
+    let logouts;
+    let page;
+
+    const flush = () => new Promise((pResolve) => {
+      setImmediate(pResolve);
+    });
+
+    const checkWith = async (pError) => {
+      page.api.getStats = () => Promise.reject(pError);
+      page._logoutTimer();
+      await flush();
+    };
+
+    beforeEach(() => {
+      logouts = 0;
+      defineGlobal("window", {
+        "clearInterval": () => {},
+        "localStorage": Utils._getDummyStorage("local"),
+        "sessionStorage": Utils._getDummyStorage("session")
+      });
+      Utils.setStorageItem("session", "token", "token1");
+      page = Object.create(LogoutPage.prototype);
+      page.api = {"logout": () => {
+        logouts += 1;
+        return Promise.resolve(true);
+      }};
+      page.router = {"goTo": () => {}};
+    });
+
+    afterEach(() => {
+      Utils.clearStorage("session");
+      delete globalThis.window;
+    });
+
+    it("test network error keeps the session", async () => {
+      await checkWith(API.makeErrorSerializable(new TypeError("Failed to fetch")));
+      assert.equal(logouts, 0);
+    });
+
+    it("test proxy errors keep the session", async () => {
+      await checkWith(new HTTPError(502, "Bad Gateway"));
+      await checkWith(new HTTPError(503, "Service Unavailable"));
+      await checkWith(new HTTPError(504, ""));
+      assert.equal(logouts, 0);
+    });
+
+    it("test 500 keeps the session and stops the check", async () => {
+      page.logoutInterval = 1;
+      await checkWith(new HTTPError(500, "Internal Server Error"));
+      assert.equal(logouts, 0);
+      assert.isNull(page.logoutInterval);
+    });
+
+    it("test other error still ends the session", async () => {
+      await checkWith(new HTTPError(403, "Forbidden"));
+      assert.equal(logouts, 1);
     });
   });
 
