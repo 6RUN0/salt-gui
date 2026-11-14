@@ -87,11 +87,18 @@ export class LogoutPage extends Page {
     if (leftMillis <= 0) {
       warning.style.display = "";
       warning.innerText = "Logout";
+      if (this.isLogoutUnderway) {
+        // this runs every second, the logout may take longer
+        return;
+      }
+      this.isLogoutUnderway = true;
       // logout, and redirect to login screen
       this.api.logout().then(() => {
+        this.isLogoutUnderway = false;
         this.router.goTo("login", {"reason": "session-expired"});
         return true;
       }, () => {
+        this.isLogoutUnderway = false;
         this.router.goTo("login", {"reason": "session-expired"});
         return false;
       });
