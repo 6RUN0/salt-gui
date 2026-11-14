@@ -544,10 +544,18 @@ export class CommandBox {
 
   static showManualRun (pApi) {
     const manualRun = document.getElementById("popup-run-command");
+    // a hotkey shows the box again while it is still open,
+    // then a running command keeps the box
+    const isReopened = manualRun.style.display !== "block";
     manualRun.style.display = "block";
 
     const outputField = document.querySelector(".run-command pre");
     outputField.innerText = "Waiting for command" + Character.HORIZONTAL_ELLIPSIS;
+    if (isReopened) {
+      // the output of the previous job is gone, so are the rows
+      // for its late results
+      CommandBox.jid = null;
+    }
 
     const targetField = document.getElementById("target");
     TargetType.autoSelectTargetType(targetField.value);
@@ -848,7 +856,9 @@ export class CommandBox {
     if (anyPending === null) {
       // no more pending, so all minions have responded, therefore stop warning for unresponsive minions
       const unresponsive = document.getElementById("unresponsive");
-      unresponsive.style.display = "none";
+      if (unresponsive) {
+        unresponsive.style.display = "none";
+      }
     }
   }
 
