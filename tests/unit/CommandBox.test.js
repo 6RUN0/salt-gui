@@ -1,7 +1,29 @@
-/* global describe it */
+/* global Buffer afterEach beforeEach describe it */
 
 import {CommandBox} from "../../saltgui/static/scripts/CommandBox.js";
+import {RunType} from "../../saltgui/static/scripts/RunType.js";
+import {TargetType} from "../../saltgui/static/scripts/TargetType.js";
+import {Utils} from "../../saltgui/static/scripts/Utils.js";
 import {assert} from "chai";
+
+// no DOM in the unit tests, window and document are replaced by stubs;
+// not enumerable, so that mocha --check-leaks does not report them
+const defineGlobal = (pName, pValue) => {
+  Object.defineProperty(globalThis, pName, {"configurable": true, "enumerable": false, "value": pValue, "writable": true});
+};
+
+const createElementStub = () => {
+  const elem = {
+    "appendChild": (pChild) => elem.children.push(pChild),
+    "children": [],
+    "classList": {"add": () => {}, "remove": () => {}},
+    "firstChild": null,
+    "focus": () => {},
+    "style": {},
+    "value": ""
+  };
+  return elem;
+};
 
 describe("Unittests for CommandBox.js", () => {
 
@@ -128,6 +150,81 @@ describe("Unittests for CommandBox.js", () => {
       const template = {description: "No Shortcut", key: null};
       const result = CommandBox._templateTmplMenuItemTitle(template);
       assert.equal(result, "No Shortcut");
+    });
+  });
+
+  // pins: a result of the previous asynchronous job, after the box was
+  // closed and opened again, added its row to the new output and threw a
+  // TypeError, which stopped the event handlers of all other pages
+  describe("handleSaltJobRetEvent after showManualRun", () => {
+    const JID = "20261114120000000001";
+    const replaced = [];
+    let output;
+    let elements;
+
+    const replaceMethod = (pOwner, pName) => {
+      replaced.push([pOwner, pName, pOwner[pName]]);
+      pOwner[pName] = () => {};
+    };
+
+    beforeEach(() => {
+      output = createElementStub();
+      elements = {
+        "command": createElementStub(),
+        "data-list-target": createElementStub(),
+        "popup-run-command": createElementStub(),
+        "target": createElementStub()
+      };
+      defineGlobal("window", {
+        "btoa": (pText) => Buffer.from(pText, "latin1").toString("base64"),
+        "localStorage": Utils._getDummyStorage("local"),
+        "location": {"hash": ""},
+        "sessionStorage": Utils._getDummyStorage("session")
+      });
+      defineGlobal("document", {
+        "createElement": createElementStub,
+        "getElementById": (pId) => elements[pId] || null,
+        "querySelector": (pSelector) => pSelector === ".run-command pre" ? output : null
+      });
+      replaceMethod(TargetType, "autoSelectTargetType");
+      replaceMethod(RunType, "setRunTypeDefault");
+      replaceMethod(CommandBox, "_populateTemplateCatMenu");
+      replaceMethod(CommandBox, "_populateTemplateTmplMenu");
+      replaceMethod(CommandBox, "_populateTestProviders");
+    });
+
+    afterEach(() => {
+      while (replaced.length > 0) {
+        const [owner, name, original] = replaced.pop();
+        owner[name] = original;
+      }
+      CommandBox.jid = undefined;
+      delete globalThis.window;
+      delete globalThis.document;
+    });
+
+    it("test result of the previous job is ignored", () => {
+      // the asynchronous job that ran when the box was closed
+      CommandBox.jid = JID;
+      CommandBox.showManualRun(null);
+      CommandBox.handleSaltJobRetEvent("salt/job/" + JID + "/ret/minion1", {"id": "minion1", "jid": JID, "retcode": 0, "return": true, "success": true});
+      assert.lengthOf(output.children, 0);
+    });
+
+    // pins: the key "c" shows the box while it is open, the rows for
+    // the late results of the running job were dropped
+    it("test result of the job is kept when the box stays open", () => {
+      elements["popup-run-command"].style.display = "block";
+      CommandBox.jid = JID;
+      CommandBox.showManualRun(null);
+      CommandBox.handleSaltJobRetEvent("salt/job/" + JID + "/ret/minion1", {"id": "minion1", "jid": JID, "retcode": 0, "return": true, "success": true});
+      assert.lengthOf(output.children, 1);
+    });
+
+    it("test result without the unresponsive warning does not throw", () => {
+      CommandBox.jid = JID;
+      CommandBox.handleSaltJobRetEvent("salt/job/" + JID + "/ret/minion1", {"id": "minion1", "jid": JID, "retcode": 0, "return": true, "success": true});
+      assert.lengthOf(output.children, 1);
     });
   });
 
