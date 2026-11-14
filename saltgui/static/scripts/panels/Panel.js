@@ -1297,6 +1297,9 @@ export class Panel {
     }
     this.loopTimeout = null;
     this.loopOwner = null;
+    // a restart with the same owner must not continue
+    // with an item of this loop that is still in progress
+    this.loopGeneration = (this.loopGeneration || 0) + 1;
   }
 
   _loopSchedule (pMillis) {
@@ -1308,6 +1311,7 @@ export class Panel {
 
   _loopStep () {
     const owner = this.loopOwner;
+    const loopGeneration = this.loopGeneration;
     if (!owner) {
       // the loop was stopped
       return;
@@ -1329,7 +1333,7 @@ export class Panel {
     }
 
     const whenDone = (pResult) => {
-      if (this.loopOwner !== owner) {
+      if (this.loopOwner !== owner || this.loopGeneration !== loopGeneration) {
         // stopped or restarted while the item was in progress
         return;
       }
