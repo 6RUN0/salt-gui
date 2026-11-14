@@ -169,6 +169,7 @@ describe("Unittests for CommandBox.js", () => {
 
     beforeEach(() => {
       output = createElementStub();
+      const button = createElementStub();
       elements = {
         "command": createElementStub(),
         "data-list-target": createElementStub(),
@@ -184,7 +185,15 @@ describe("Unittests for CommandBox.js", () => {
       defineGlobal("document", {
         "createElement": createElementStub,
         "getElementById": (pId) => elements[pId] || null,
-        "querySelector": (pSelector) => pSelector === ".run-command pre" ? output : null
+        "querySelector": (pSelector) => {
+          if (pSelector === ".run-command pre") {
+            return output;
+          }
+          if (pSelector === ".run-command input[type='submit']") {
+            return button;
+          }
+          return null;
+        }
       });
       replaceMethod(TargetType, "autoSelectTargetType");
       replaceMethod(RunType, "setRunTypeDefault");

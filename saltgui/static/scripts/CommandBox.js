@@ -379,7 +379,15 @@ export class CommandBox {
     const command = commandValue.split(" ")[0];
     CommandBox._markPanelsForRefresh(command);
 
+    // the box may be closed and opened again for another command
+    // before the answer arrives, see showManualRun
+    CommandBox.runGeneration = (CommandBox.runGeneration || 0) + 1;
+    const runGeneration = CommandBox.runGeneration;
+
     func.then((ok_response) => {
+      if (runGeneration !== CommandBox.runGeneration) {
+        return false;
+      }
       if (ok_response) {
         CommandBox.onRunReturn(ok_response.return[0], commandValue);
         CommandBox._prepareForAsyncResults(ok_response);
@@ -388,6 +396,9 @@ export class CommandBox {
       }
       return true;
     }, (_error_response) => {
+      if (runGeneration !== CommandBox.runGeneration) {
+        return false;
+      }
       CommandBox._showError(JSON.stringify(_error_response));
       return false;
     });
@@ -568,6 +579,15 @@ export class CommandBox {
     };
 
     RunType.setRunTypeDefault();
+
+    if (isReopened) {
+      // a command that still runs no longer owns the box:
+      // its answer is not shown, the fields are available again
+      CommandBox.runGeneration = (CommandBox.runGeneration || 0) + 1;
+      targetField.disabled = false;
+      document.getElementById("command").disabled = false;
+      document.querySelector(".run-command input[type='submit']").disabled = false;
+    }
 
     // (re-)populate the dropdown box
     const targetList = document.getElementById("data-list-target");
