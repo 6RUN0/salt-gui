@@ -74,6 +74,8 @@ export class JobPanel extends Panel {
       return;
     }
 
+    // never run two refresh timers
+    window.clearTimeout(this.refreshJobTimeout);
     this.refreshJobTimeout = window.setTimeout(() => {
       this.refreshJobTimeout = null;
       if (this.playOrPause === "play") {
@@ -90,24 +92,42 @@ export class JobPanel extends Panel {
 
     this.jobIsTerminated = undefined;
 
+    // answers of an earlier onShow, or that arrive after onHide,
+    // must not schedule another refresh
+    this.refreshGeneration = (this.refreshGeneration || 0) + 1;
+    const refreshGeneration = this.refreshGeneration;
+
     const runnerJobsListJobPromise = this.api.getRunnerJobsListJob(jobId);
     const runnerJobsActivePromise = this.api.getRunnerJobsActive();
 
     runnerJobsListJobPromise.then((ok_RunnerJobsListJob) => {
+      if (refreshGeneration !== this.refreshGeneration) {
+        Utils.ignorePromise(runnerJobsActivePromise);
+        return false;
+      }
       this._handleJobRunnerJobsListJob(ok_RunnerJobsListJob, jobId, minionId);
       runnerJobsActivePromise.then((ok_RunnerJobsActive) => {
+        if (refreshGeneration !== this.refreshGeneration) {
+          return false;
+        }
         this._handleRunnerJobsActive(jobId, ok_RunnerJobsActive);
         this._scheduleRefreshJob();
         return true;
       }, (_error_RunnerJobsActive) => {
+        if (refreshGeneration !== this.refreshGeneration) {
+          return false;
+        }
         this._handleRunnerJobsActive(jobId, JSON.stringify(_error_RunnerJobsActive));
         this.setPlayPauseButton("none");
         return false;
       });
       return true;
     }, (_error_RunnerJobsListJobs) => {
-      this._handleJobRunnerJobsListJob(JSON.stringify(_error_RunnerJobsListJobs), jobId, undefined);
       Utils.ignorePromise(runnerJobsActivePromise);
+      if (refreshGeneration !== this.refreshGeneration) {
+        return false;
+      }
+      this._handleJobRunnerJobsListJob(JSON.stringify(_error_RunnerJobsListJobs), jobId, undefined);
       this.setPlayPauseButton("none");
       return false;
     });
@@ -121,6 +141,9 @@ export class JobPanel extends Panel {
 
   onHide () {
     super.onHide();
+
+    // a request that is still underway must not start a new timer
+    this.refreshGeneration = (this.refreshGeneration || 0) + 1;
 
     if (this.refreshJobTimeout) {
       // stop the timer when nobody is looking
