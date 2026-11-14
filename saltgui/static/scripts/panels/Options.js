@@ -337,11 +337,15 @@ export class OptionsPanel extends Panel {
   }
 
   _setupOptionIntervals (td, name, category, value, sessionStart) {
+    // one interval per field; onShow runs again without onHide
+    // when the same page is shown again
     if (category === "session" && name === "start") {
-      this.updateExpiresInterval = window.setInterval(() => {
+      window.clearInterval(this.updateStartInterval);
+      this.updateStartInterval = window.setInterval(() => {
         OptionsPanel._enhanceSessionStart(td, value, sessionStart);
       }, 1000);
     } else if (category === "session" && name === "expire") {
+      window.clearInterval(this.updateExpiresInterval);
       this.updateExpiresInterval = window.setInterval(() => {
         OptionsPanel._enhanceSessionExpire(td, value, sessionStart);
       }, 1000);
@@ -389,6 +393,11 @@ export class OptionsPanel extends Panel {
   onHide () {
     super.onHide();
 
+    if (this.updateStartInterval) {
+      // stop the timer when nobody is looking
+      window.clearInterval(this.updateStartInterval);
+      this.updateStartInterval = null;
+    }
     if (this.updateExpiresInterval) {
       // stop the timer when nobody is looking
       window.clearInterval(this.updateExpiresInterval);
