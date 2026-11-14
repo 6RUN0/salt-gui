@@ -93,6 +93,42 @@ describe("Unittests for ParseCommandLine.js", () => {
       result = ParseCommandLine.parseCommandLine("x=1 y=2 x=3", args, params);
       assert.equal(result, "Duplicate named variable 'x'");
 
+      // an equal sign inside a double-quoted string does not make a name
+      args = [];
+      params = {};
+      result = ParseCommandLine.parseCommandLine("cmd.run \"FOO=1 bar\"", args, params);
+      assert.isNull(result);
+      assert.equal(args.length, 2);
+      assert.equal(args[0], "cmd.run");
+      assert.equal(args[1], "FOO=1 bar");
+      assert.equal(Object.keys(params).length, 0);
+
+      // an equal sign inside a dictionary does not make a name
+      args = [];
+      params = {};
+      result = ParseCommandLine.parseCommandLine("{\"a\":\"b=c\"}", args, params);
+      assert.isNull(result);
+      assert.equal(args.length, 1);
+      assert.deepEqual(args[0], {"a": "b=c"});
+      assert.equal(Object.keys(params).length, 0);
+
+      // an equal sign inside an array does not make a name
+      args = [];
+      params = {};
+      result = ParseCommandLine.parseCommandLine("[\"x=1\"]", args, params);
+      assert.isNull(result);
+      assert.equal(args.length, 1);
+      assert.deepEqual(args[0], ["x=1"]);
+      assert.equal(Object.keys(params).length, 0);
+
+      // a named parameter can still have a double-quoted value
+      args = [];
+      params = {};
+      result = ParseCommandLine.parseCommandLine("name=\"a=b c\"", args, params);
+      assert.isNull(result);
+      assert.equal(args.length, 0);
+      assert.equal(params.name, "a=b c");
+
       // DICTIONARY
 
       // a regular dictionary

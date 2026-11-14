@@ -77,6 +77,12 @@ export class ParseCommandLine {
     let name = null;
     let toRun = pToRun;
 
+    // a name cannot start with the begin character of a JSON value
+    // e.g. "FOO=1 bar" is a string and not a named parameter
+    if (toRun[0] === "\"" || toRun[0] === "{" || toRun[0] === "[") {
+      return { error: null, name, pToRun: toRun };
+    }
+
     let firstSpaceChar = toRun.indexOf(" ");
     if (firstSpaceChar < 0) {
       firstSpaceChar = toRun.length;
