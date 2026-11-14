@@ -2,7 +2,7 @@
 /* eslint-disable compat/compat */
 
 // Api.js first: loading Login.js on its own ends in an import cycle
-import "../../../saltgui/static/scripts/Api.js";
+import {API, HTTPError} from "../../../saltgui/static/scripts/Api.js";
 import {LoginPanel} from "../../../saltgui/static/scripts/panels/Login.js";
 import {Router} from "../../../saltgui/static/scripts/Router.js";
 import {Utils} from "../../../saltgui/static/scripts/Utils.js";
@@ -158,6 +158,57 @@ describe("Unittests for panels/Login.js", () => {
       await fireTimers(1000);
       await fireTimers(5000);
       assert.deepEqual(events, ["goTo "]);
+    });
+  });
+
+  // pins: "Authentication failed" was shown for every failure except
+  // the network error of Firefox, also when salt-api could not be reached
+  describe("_onLoginFailure", () => {
+    let notices;
+    let panel;
+
+    beforeEach(() => {
+      notices = [];
+      panel = Object.create(LoginPanel.prototype);
+      panel._showNoticeText = (...pArgs) => notices.push(pArgs[2] + " " + pArgs[1]);
+      panel._enableLoginControls = () => {};
+    });
+
+    it("test 401 is an authentication failure", () => {
+      panel._onLoginFailure(new HTTPError(401, "Unauthorized"));
+      assert.deepEqual(notices, ["notice_auth_failed Authentication failed"]);
+    });
+
+    it("test network error of each browser", () => {
+      panel._onLoginFailure(API.makeErrorSerializable(new TypeError("NetworkError when attempting to fetch resource.")));
+      panel._onLoginFailure(API.makeErrorSerializable(new TypeError("Failed to fetch")));
+      panel._onLoginFailure(API.makeErrorSerializable(new TypeError("Load failed")));
+      assert.deepEqual(notices, [
+        "notice_login_other_error Network Error",
+        "notice_login_other_error Network Error",
+        "notice_login_other_error Network Error"
+      ]);
+    });
+
+    it("test server errors show the status", () => {
+      panel._onLoginFailure(new HTTPError(500, "Internal Server Error"));
+      panel._onLoginFailure(new HTTPError(502, ""));
+      panel._onLoginFailure(new HTTPError(404, "Not Found"));
+      assert.deepEqual(notices, [
+        "notice_login_other_error Server error 500: Internal Server Error",
+        "notice_login_other_error Server error 502",
+        "notice_login_other_error Server error 404: Not Found"
+      ]);
+    });
+
+    it("test 503 without reason phrase is not empty", () => {
+      panel._onLoginFailure(new HTTPError(503, ""));
+      assert.deepEqual(notices, ["notice_login_service_unavailable Service Unavailable"]);
+    });
+
+    it("test other error is not an authentication failure", () => {
+      panel._onLoginFailure(new SyntaxError("Unexpected token '<'"));
+      assert.deepEqual(notices, ["notice_login_other_error Login failed: SyntaxError: Unexpected token '<'"]);
     });
   });
 

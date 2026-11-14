@@ -395,8 +395,8 @@ export class API {
   }
 
   // callers show errors with JSON.stringify, which gives "{}" for an Error:
-  // its name and message are not enumerable. toString() stays the same,
-  // the login panel recognizes "TypeError: NetworkError" with it.
+  // its name and message are not enumerable. toString() and the class
+  // stay the same, the login panel recognizes a TypeError with instanceof.
   static makeErrorSerializable (pError) {
     if (pError instanceof Error && !(pError instanceof HTTPError)) {
       Object.defineProperty(pError, "name", {"configurable": true, "enumerable": true, "value": pError.name, "writable": true});

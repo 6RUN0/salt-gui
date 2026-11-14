@@ -573,15 +573,24 @@ export class LoginPanel extends Panel {
     } else if (error?.status === 503) {
       // Service Unavailable
       // e.g. salt-api running but salt-master not running
-      this._showNoticeText("#F44336", error.message, "notice_login_service_unavailable");
+      // HTTP/2 has no reason phrase, the message is then empty
+      this._showNoticeText("#F44336", error.message || "Service Unavailable", "notice_login_service_unavailable");
     } else if (error?.status === -1) {
       // No permissions: login valid, but no api functions executable
       // e.g. PAM says OK and /etc/salt/master says NO
       this._showNoticeText("#F44336", error.message, "notice_login_other_error");
-    } else if (error.toString().startsWith("TypeError: NetworkError")) {
-      this._showNoticeText("#F44336", "Network Error", "notice_login_other_error");
-    } else {
+    } else if (error?.status === 401) {
       this._showNoticeText("#F44336", "Authentication failed", "notice_auth_failed");
+    } else if (error instanceof TypeError) {
+      // fetch rejects with a TypeError when salt-api cannot be reached,
+      // the text differs per browser: "NetworkError...", "Failed to fetch", "Load failed"
+      this._showNoticeText("#F44336", "Network Error", "notice_login_other_error");
+    } else if (error?.status) {
+      // e.g. 500 from salt-api, 502 from a proxy, 404 for a wrong API_URL
+      const details = error.message ? ": " + error.message : "";
+      this._showNoticeText("#F44336", "Server error " + error.status + details, "notice_login_other_error");
+    } else {
+      this._showNoticeText("#F44336", "Login failed: " + error, "notice_login_other_error");
     }
 
     this._enableLoginControls(true);
