@@ -61,11 +61,15 @@ export class JobsDetailsPanel extends JobsPanel {
     }
     this.settingsMenu._value = cnt;
 
+    this.isHidden = false;
     super.onShow(cnt);
   }
 
   onHide () {
     super.onHide();
+
+    // the list may still arrive, its details are not loaded then
+    this.isHidden = true;
 
     if (this.updateNextJobInterval) {
       // stop the timer when nobody is looking
@@ -80,10 +84,15 @@ export class JobsDetailsPanel extends JobsPanel {
     if (MAX_CNT_LOADING <= 0) {
       return;
     }
+    if (this.isHidden) {
+      return;
+    }
 
     // to update details
     // interval should be larger than the retrieval time
     // to prevent many of such jobs to appear
+    // a refresh of the list replaces the interval
+    window.clearInterval(this.updateNextJobInterval);
     this.updateNextJobInterval = window.setInterval(() => {
       this._updateNextJob();
     }, LOADING_INTERVAL_IN_MS);
