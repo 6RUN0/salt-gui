@@ -6,6 +6,12 @@ import {Panel} from "./Panel.js";
 import {Router} from "../Router.js";
 import {Utils} from "../Utils.js";
 
+// the success message stays visible at least this long
+const LOGIN_MESSAGE_MS = 1000;
+// the first page reads the master config (e.g. saltgui_pages), so it waits
+// for wheel config.values, but not longer than this: fetch has no timeout
+const LOGIN_CONFIG_WAIT_MS = 5000;
+
 export class LoginPanel extends Panel {
 
   constructor () {
@@ -326,7 +332,7 @@ export class LoginPanel extends Panel {
 
     // We need these functions to populate the dropdown boxes
     // or determine visibility of menu items
-    wheelConfigValuesPromise.then((ok_WheelConfigValues) => {
+    const wheelConfigValuesHandledPromise = wheelConfigValuesPromise.then((ok_WheelConfigValues) => {
       LoginPanel._handleLoginWheelConfigValues(ok_WheelConfigValues);
       Router.updateMainMenu();
       return true;
@@ -347,11 +353,22 @@ export class LoginPanel extends Panel {
     });
     /* eslint-enable no-unused-vars */
 
-    // allow the success message to be seen
-    window.setTimeout(() => {
+    let isMessageShown = false;
+    let isConfigHandled = false;
+    let isFirstPageShown = false;
+    const showFirstPage = () => {
+      if (isFirstPageShown) {
+        return;
+      }
+      isFirstPageShown = true;
       // erase credentials since we don't do page-refresh
       this.usernameField.value = "";
       this.passwordField.value = "";
+      if (Router.currentPage && Router.currentPage.path !== "login") {
+        // the menu is shown while waiting for config.values,
+        // the user already went to another page
+        return;
+      }
       if (Utils.getStorageItem("session", "login_response") !== null) {
         // we might have been logged out in this first second
         // e.g. when clock between client and server differs more than the session timout
@@ -369,7 +386,24 @@ export class LoginPanel extends Panel {
           this.router.goTo("");
         }
       }
-    }, 1000);
+    };
+    const whenConfigHandled = () => {
+      isConfigHandled = true;
+      if (isMessageShown) {
+        showFirstPage();
+      }
+    };
+    // a failed config.values does not delay the first page
+    wheelConfigValuesHandledPromise.then(whenConfigHandled, whenConfigHandled);
+
+    // allow the success message to be seen
+    window.setTimeout(() => {
+      isMessageShown = true;
+      if (isConfigHandled) {
+        showFirstPage();
+      }
+    }, LOGIN_MESSAGE_MS);
+    window.setTimeout(showFirstPage, LOGIN_CONFIG_WAIT_MS);
 
     BeaconsMinionPanel.getAvailableBeacons(this.api);
   }
