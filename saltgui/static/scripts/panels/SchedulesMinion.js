@@ -35,12 +35,23 @@ export class SchedulesMinionPanel extends Panel {
     // preliminary title
     this.updateTitle("Schedules on " + minionId);
 
+    // a late answer of an earlier onShow, e.g. for another minion,
+    // must not be added to this page
+    this.showGeneration = (this.showGeneration || 0) + 1;
+    const showGeneration = this.showGeneration;
+
     const localScheduleListPromise = this.api.getLocalScheduleList(minionId);
 
     localScheduleListPromise.then((ok_LocalScheduleList) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalScheduleList(ok_LocalScheduleList, minionId);
       return true;
     }, (_error_LocalScheduleList) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalScheduleList(JSON.stringify(_error_LocalScheduleList), minionId);
       return false;
     });

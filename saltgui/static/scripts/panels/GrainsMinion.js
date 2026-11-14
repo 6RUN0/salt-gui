@@ -35,12 +35,23 @@ export class GrainsMinionPanel extends Panel {
     const useCacheGrains = Utils.getStorageItemBoolean("session", "use_cache_for_grains", false);
     this.setWarningText("info", useCacheGrains ? "the content of this screen is based on cached grains info, minion status or grain info may not be accurate" : "");
 
+    // a late answer of an earlier onShow, e.g. for another minion,
+    // must not be added to this page
+    this.showGeneration = (this.showGeneration || 0) + 1;
+    const showGeneration = this.showGeneration;
+
     const localGrainsItemsPromise = useCacheGrains ? this.api.getRunnerCacheGrains(minionId) : this.api.getLocalGrainsItems(minionId);
 
     localGrainsItemsPromise.then((ok_LocalGrainsItems) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalGrainsItems(ok_LocalGrainsItems, minionId);
       return true;
     }, (_error_LocalGrainsItems) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalGrainsItems(JSON.stringify(_error_LocalGrainsItems), minionId);
       return false;
     });

@@ -45,12 +45,23 @@ export class BeaconsMinionPanel extends Panel {
     // preliminary title
     this.updateTitle("Beacons on " + minionId);
 
+    // a late answer of an earlier onShow, e.g. for another minion,
+    // must not be added to this page
+    this.showGeneration = (this.showGeneration || 0) + 1;
+    const showGeneration = this.showGeneration;
+
     const localBeaconsListPromise = this.api.getLocalBeaconsList(minionId);
 
     localBeaconsListPromise.then((ok_LocalBeaconsList) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalBeaconsList(ok_LocalBeaconsList, minionId);
       return true;
     }, (_error_LocalBeaconsList) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalBeaconsList(JSON.stringify(_error_LocalBeaconsList), minionId);
       return false;
     });

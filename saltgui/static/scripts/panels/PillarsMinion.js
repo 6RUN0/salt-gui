@@ -37,12 +37,23 @@ export class PillarsMinionPanel extends Panel {
     const useCachePillar = Utils.getStorageItemBoolean("session", "use_cache_for_pillar", false);
     this.setWarningText("info", useCachePillar ? "the content of this screen is based on cached grains info, minion status or pillar info may not be accurate" : "");
 
+    // a late answer of an earlier onShow, e.g. for another minion,
+    // must not be added to this page
+    this.showGeneration = (this.showGeneration || 0) + 1;
+    const showGeneration = this.showGeneration;
+
     const localPillarItemsPromise = useCachePillar ? this.api.getRunnerCachePillar(minionId) : this.api.getLocalPillarItems(minionId);
 
     localPillarItemsPromise.then((ok_LocalPillarItems) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalPillarItems(ok_LocalPillarItems, minionId);
       return true;
     }, (_error_LocalPillarItems) => {
+      if (showGeneration !== this.showGeneration) {
+        return false;
+      }
       this._handleLocalPillarItems(JSON.stringify(_error_LocalPillarItems), minionId);
       return false;
     });

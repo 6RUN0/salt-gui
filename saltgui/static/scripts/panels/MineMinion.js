@@ -29,11 +29,22 @@ export class MineMinionPanel extends Panel {
 
     this.updateTitle("Mine on " + minionId);
 
+    // a late answer of an earlier onShow, e.g. for another minion,
+    // must not be added to this page
+    this.showGeneration = (this.showGeneration || 0) + 1;
+    const showGeneration = this.showGeneration;
+
     const localMineValidPromise = this.router.api.getLocalMineValid(minionId);
 
     localMineValidPromise.then((ok_LocalMineValid) => {
+      if (showGeneration !== this.showGeneration) {
+        return;
+      }
       this._handleLocalMineValid(ok_LocalMineValid, minionId);
     }, (_error_LocalMineValid) => {
+      if (showGeneration !== this.showGeneration) {
+        return;
+      }
       this._handleLocalMineValid(JSON.stringify(_error_LocalMineValid), minionId);
     });
   }
