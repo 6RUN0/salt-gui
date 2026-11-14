@@ -1,7 +1,14 @@
-/* global describe it */
+/* global afterEach beforeEach describe it setImmediate */
+/* eslint-disable compat/compat */
 
 import {Panel} from "../../../saltgui/static/scripts/panels/Panel.js";
 import {assert} from "chai";
+
+// no DOM in the unit tests, window is replaced by a stub;
+// not enumerable, so that mocha --check-leaks does not report it
+const defineGlobal = (pName, pValue) => {
+  Object.defineProperty(globalThis, pName, {"configurable": true, "enumerable": false, "value": pValue, "writable": true});
+};
 
 describe("Unittests for panels/Panel.js", () => {
 
@@ -132,6 +139,86 @@ describe("Unittests for panels/Panel.js", () => {
       assert.include(result, "cmd.run");
     });
 
+  });
+
+  // pins: a restart with the same owner while an item was in progress
+  // (leave and return, refreshPage) ran two loops at the same time and
+  // called loopEnd before the last item was done
+  describe("startLoop", () => {
+    let timers;
+    let pending;
+    let inFlight;
+    let inFlightAtStart;
+    let loopEndInFlight;
+    let panel;
+    let owner;
+
+    const flush = () => new Promise((pResolve) => {
+      setImmediate(pResolve);
+    });
+
+    const runToEnd = async () => {
+      for (let i = 0; i < 20; i++) {
+        while (pending.length > 0) {
+          pending.shift()();
+          await flush();
+        }
+        const callbacks = [...timers.values()];
+        timers.clear();
+        callbacks.forEach((pCallback) => pCallback());
+        await flush();
+      }
+    };
+
+    beforeEach(() => {
+      timers = new Map();
+      pending = [];
+      inFlight = 0;
+      inFlightAtStart = [];
+      loopEndInFlight = [];
+      let nextTimerId = 1;
+      defineGlobal("window", {
+        "clearTimeout": (pId) => timers.delete(pId),
+        "setTimeout": (pCallback) => {
+          const id = nextTimerId;
+          nextTimerId += 1;
+          timers.set(id, pCallback);
+          return id;
+        }
+      });
+      panel = Object.create(Panel.prototype);
+      panel.setPlayPauseButton = () => {};
+      panel.playOrPause = "play";
+      owner = {
+        "loopEnd": () => loopEndInFlight.push(inFlight),
+        "loopInit": () => ["m1", "m2", "m3", "m4"],
+        "loopItem": () => {
+          inFlightAtStart.push(inFlight);
+          inFlight += 1;
+          return new Promise((pResolve) => {
+            pending.push(() => {
+              inFlight -= 1;
+              pResolve(true);
+            });
+          });
+        }
+      };
+    });
+
+    afterEach(() => {
+      delete globalThis.window;
+    });
+
+    it("test restart with the same owner runs one item at a time", async () => {
+      panel.startLoop(owner, 1000);
+      panel.onHide();
+      panel.startLoop(owner, 1000);
+      await runToEnd();
+      // only the first item of the new loop starts while the item of the
+      // stopped loop is still in progress, that one cannot be cancelled
+      assert.deepEqual(inFlightAtStart, [0, 1, 0, 0, 0]);
+      assert.deepEqual(loopEndInFlight, [0]);
+    });
   });
 
 });
