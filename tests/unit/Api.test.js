@@ -160,6 +160,67 @@ describe("Unittests for Api.js", () => {
     });
   });
 
+  // pins: the error text of salt-api was dropped, only the reason phrase
+  // was kept; with HTTP/2 that is empty: {"status":500,"message":""}
+  // the bodies are those of salt-api 3007.14 (rest_cherrypy)
+  describe("getErrorMessage", () => {
+    const htmlPage = (pText, pTraceback) => "<html>\n<head>\n<title>400 Bad Request</title>\n</head>\n<body>\n" +
+      "<h2>400 Bad Request</h2>\n<p>" + pText + "</p>\n<pre id=\"traceback\">" + pTraceback + "</pre>\n</body>\n</html>\n";
+
+    it("test json body of an exception", () => {
+      const body = JSON.stringify({"return": "An unexpected error occurred", "status": 500});
+      assert.equal(API.getErrorMessage("", body), "An unexpected error occurred");
+    });
+
+    it("test json body with a traceback shows the exception", () => {
+      const body = JSON.stringify({"return": "Traceback (most recent call last):\n  File \"app.py\", line 860, in handler\n    ret = handler()\n" +
+        "salt.exceptions.CommandExecutionError: 'no_such_runner.xyz' is not available.\n", "status": 500});
+      assert.equal(API.getErrorMessage("Internal Server Error", body), "salt.exceptions.CommandExecutionError: 'no_such_runner.xyz' is not available.");
+    });
+
+    it("test html body", () => {
+      const body = htmlPage("Client disabled: 'ssh'. Add to 'netapi_enable_clients' master config option to enable.", "");
+      assert.equal(API.getErrorMessage("Bad Request", body), "Client disabled: 'ssh'. Add to 'netapi_enable_clients' master config option to enable.");
+    });
+
+    it("test html body with a traceback shows only the paragraph", () => {
+      const body = htmlPage("Invalid JSON document", "Traceback (most recent call last):\n  File \"app.py\", line 1016\nValueError: Invalid JSON document");
+      assert.equal(API.getErrorMessage("Bad Request", body), "Invalid JSON document");
+    });
+
+    it("test empty or unknown body keeps the reason phrase", () => {
+      assert.equal(API.getErrorMessage("Bad Gateway", ""), "Bad Gateway");
+      assert.equal(API.getErrorMessage("Bad Gateway", "{}"), "Bad Gateway");
+      assert.equal(API.getErrorMessage("", "<html><body>proxy error</body></html>"), "");
+    });
+
+    it("test long text is cut", () => {
+      const body = JSON.stringify({"return": "x".repeat(300), "status": 500});
+      assert.equal(API.getErrorMessage("", body), "x".repeat(200) + "...");
+    });
+
+    it("test apiRequest rejects with the text from the body", async () => {
+      defineGlobal("config", {"API_URL": "http://api"});
+      defineGlobal("window", {
+        "fetch": () => Promise.resolve({
+          "ok": false,
+          "status": 500,
+          "statusText": "",
+          "text": () => Promise.resolve(JSON.stringify({"return": "An unexpected error occurred", "status": 500}))
+        }),
+        "localStorage": Utils._getDummyStorage("local"),
+        "sessionStorage": Utils._getDummyStorage("session")
+      });
+      try {
+        const result = await new API().apiRequest("POST", "/", {"client": "runner", "fun": "no_such_runner.xyz"}).then(() => "resolved", (pError) => pError);
+        assert.deepEqual(JSON.parse(JSON.stringify(result)), {"message": "An unexpected error occurred", "status": 500});
+      } finally {
+        delete globalThis.config;
+        delete globalThis.window;
+      }
+    });
+  });
+
   describe("HTTPError", () => {
     it("test constructor with status and message", () => {
       const error = new HTTPError(404, "Not Found");

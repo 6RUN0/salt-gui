@@ -402,11 +402,47 @@ export class API {
           // the session is valid, so the eauth ACL refused this request
           throw new HTTPError(401, API.getNotPermittedText(pPage, pParams));
         }
-        throw new HTTPError(pResponse.status, pResponse.statusText);
+        // salt-api describes the error in the body
+        return pResponse.text().then((pBody) => {
+          if (pBody.includes("Traceback (most recent call last)")) {
+            // only its last line is shown
+            Utils.error("salt-api error " + pResponse.status + " for " + pPage, pBody);
+          }
+          throw new HTTPError(pResponse.status, API.getErrorMessage(pResponse.statusText, pBody));
+        });
       }).
       then(undefined, (pError) => {
         throw API.makeErrorSerializable(pError);
       });
+  }
+
+  // salt-api (rest_cherrypy) sends JSON {"status": 500, "return": "text"}
+  // for an exception in a salt function, and a CherryPy html page with
+  // the text in <p> for other errors; with "debug: True" both carry a
+  // traceback, which ends with the exception itself.
+  // HTTP/2 has no reason phrase, so pStatusText may be empty
+  static getErrorMessage (pStatusText, pBody) {
+    let text = "";
+    try {
+      const data = JSON.parse(pBody);
+      if (data && typeof data.return === "string") {
+        text = data.return;
+      }
+    } catch (err) { // eslint-disable-line no-unused-vars
+      const paragraph = /<p>([^<]*)<\/p>/.exec(pBody);
+      if (paragraph) {
+        text = paragraph[1];
+      }
+    }
+    const lines = text.split("\n").map((pLine) => pLine.trim()).filter((pLine) => pLine !== "");
+    if (lines.length === 0) {
+      return pStatusText;
+    }
+    const message = lines[lines.length - 1];
+    if (message.length > 200) {
+      return message.substring(0, 200) + "...";
+    }
+    return message;
   }
 
   // callers show errors with JSON.stringify, which gives "{}" for an Error:
